@@ -1,0 +1,143 @@
+---
+title: "MTH6139 Time Series" 
+subtitle: "Coursework 1 -- Gold Price Forecasting with Prophet" 
+author: "Minhajul Hoque" 
+date: "Spring term 2026" 
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab 
+    highlight: tango
+---
+ 
+```{r, echo=FALSE}
+# This code will display the QMUL logo at the top right of the page
+# Do not change this code
+htmltools::img(src = knitr::image_uri("images/QMlogo.png"),
+               alt = 'logo',
+               style = 'position:absolute; top:0; right:0; padding:10px; width:20%;')
+```
+
+# 1. Introduction
+
+In this project I decided to explore the monthly price of gold in GBP per troy ounce, with data from Jan 1978 to Feb 2026.
+
+(Data obtained from:
+https://www.gold.org/goldhub/data/gold-prices)
+
+Gold is one of the most widely tracked commodities globally and it is usually used as a store of value and a hedge against inflation. 
+
+My goal behind this project is to analyse the trend in the gold price series and produce a forecast using the Prophet forecasting system.
+
+# 2. Loading the Data
+
+First we load the libraries which are needed and then read the gold price data from the Excel file we have from the website: https://www.gold.org/goldhub/data/gold-prices.
+
+We extract the date column and the GBP price column, and from those we remove any rows with missing values.
+
+Due to there being a disclaimer sheet and multiple header rows, I used 'sheet = "Monthly_Avg"' and 'skip = 3' to read the data directly.
+
+```{r, message=FALSE, warning=FALSE}
+library(readxl)
+library(prophet)
+
+gold_raw <- read_excel("data/gold.xlsx", sheet = "Monthly_Avg", skip = 3)
+
+gold_gbp <- data.frame(ds = as.Date(gold_raw[[1]]), y = as.numeric(gold_raw[["GBP"]]))
+
+gold_gbp <- gold_gbp[!is.na(gold_gbp$ds) & !is.na(gold_gbp$y), ]
+
+head(gold_gbp)
+
+summary(gold_gbp$y)
+range(gold_gbp$ds)
+```
+
+The summary statistics here give us a quick overview of the scale of the series before diving deeper into the analysis and the range function used help us get an overview of the date range of the data we are working with, so in this case it helps us see that the series runs monthly from 1978 to 2026.
+
+
+# 3. Exploratory Analysis
+
+Before beginning the forecast we start by checking the trend of the raw time series over the period of the data.
+
+```{r}
+plot(gold_gbp$ds, gold_gbp$y,
+     type = "l",
+     main = "Monthly Gold Price in GBP per troy ounce",
+     xlab = "Year",
+     ylab = "Price in GBP",
+     col = "darkgoldenrod")
+```
+
+The plot as seen here shows a strong upward trend over the period of the data, particularly a dramatic rise from 2005 onwards. 
+
+We also see peaks at around 1980 and 2011 meaning that the series is shaped also by periods of economic uncertainty and changing market conditions rather than just being a constant rise, which is naturally expected for such a relied upon commodity.
+
+
+## 3.1 Measuring the trend
+
+We fit a simple linear regression to measure the average rate of price increase over time.
+
+```{r}
+gold_trend <- lm(y ~ as.numeric(ds), data = gold_gbp)
+summary(gold_trend)
+```
+
+The regression fitted here helps us confirm that the overall direction of the series overtime is in a positive direction, indicating that gold prices on average have increased for the time period we obtained the data for.
+
+> <font size="5">⚠️</font> **Extra**
+> The slope coefficient is in GBP per day since 'ds' is stored as a date in days.
+
+
+# 4. Forecasting with Prophet
+
+We fit a prophet model to the data and forecast it 2 years(24 months) ahead. Using Meta's Prophet model helps us in this case, as Prophet is a forecasting model primarily used for economic and financial series where changes in growth pattern are seen over time. This reflects what we see with our gold price series where we have a long term upward trend and changing patterns making this a useful tool for our analysis.
+
+```{r, message=FALSE, warning=FALSE}
+gold_model <- prophet(gold_gbp)
+
+future_dates <- make_future_dataframe(gold_model, periods = 24, freq = "month")
+gold_forecast <- predict(gold_model, future_dates)
+```
+
+## 4.1 The Forecast Plot
+
+```{r}
+plot(gold_model, gold_forecast,
+     xlab = "Year",
+     ylab = "Gold Price in GBP")
+```
+
+The black dots in the forecast are the observed monthly prices and the blue line is prophet's fitted model, and the shaded region is the uncertainty interval around the forecast.
+
+
+## 4.2 Components Plot
+
+Prophet decomposes the series into separate components.
+
+```{r}
+prophet_plot_components(gold_model, gold_forecast)
+```
+
+The trend component here confirms the strong long-run increase in gold prices and the seasonal component shows any recurring patterns that prophet has identified across the period that we have.
+```{r}
+tail(gold_forecast[, c("ds", "yhat","yhat_lower", "yhat_upper")], 12)
+```
+
+Our table above shows the final months of the forecast going till February 2028.
+
+
+# 5. Conclusion 
+
+In this project I use Meta's Prophet to analyse and forecast monthly gold prices in GBP based on the data I obtained from <https://www.gold.org/goldhub/data/gold-prices>. The data I gathered from the website included gold prices from 1978 to 2026 and has shown a clear long-run upward trend in the prices, with some periods of significant rise especially after 2005. 
+
+Prophet managed to produce a 2 year forecast that extended into 2028 and also separated the series into components to aid our analysis and forecasting.
+
+
+# References
+
+- World Gold Council: <https://www.gold.org/goldhub/data/gold-prices>
+- RStudio reference: <https://rmarkdown.rstudio.com/lesson-1.html>
+- Mode: <https://mode.com/example-gallery/forecasting_prophet_r_cookbook>
+- Meta Prophet documentation: <https://facebook.github.io/prophet/docs/quick_start.html#r-api>
