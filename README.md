@@ -1,2 +1,5 @@
-# Gold-price-forecast
-Time series analysis of gold prices using Meta's Prophet in R.
+# Gold Price Forecast with Prophet
+
+This is a time series analysis and forecast of monthly gold prices (GBP) from 1978 to 2026 using Meta's Prophet in R.
+
+** Live project: ** https://rpubs.com/Minhajulhoque/gold-price-forecast
